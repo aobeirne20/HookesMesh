@@ -50,13 +50,6 @@ class Spring:
     def find_forces(self):
         pos_n = self.rigids[0].pos - self.rigids[0].initial_pos
         pos_p = self.rigids[1].pos - self.rigids[1].initial_pos
-        if pos_p[self.dim - 1] < pos_n[self.dim - 1]:
-            self.rigids[0], self.rigids[1] = self.rigids[1], self.rigids[0]
-            pos_n = self.rigids[0].pos - self.rigids[0].initial_pos
-            pos_p = self.rigids[1].pos - self.rigids[1].initial_pos
-        else:
-            pass
-
         self.length = pos_p[self.dim-1] - pos_n[self.dim-1]
         self.force = -1 * self.length * self.k
         force_applicator = np.zeros(3, dtype=float)
@@ -124,9 +117,9 @@ TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
 TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
 TrialMesh.create_pointmass([0, 0, 2], [0, 0, 2], 1)
 TrialMesh.create_anchor([0, 0, 3], [0, 0, 3])
-TrialMesh.create_spring([0, 0, 0], [0, 0, 1], 1, 2)
-TrialMesh.create_spring([0, 0, 1], [0, 0, 2], 1, 2)
-TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
+TrialMesh.create_spring([0, 0, 1], [0, 0, 0], 1, 2)
+TrialMesh.create_spring([0, 0, 2], [0, 0, 1], 1, 2)
+TrialMesh.create_spring([0, 0, 3], [0, 0, 2], 1, 2)
 
 Instance1 = Instance(TrialMesh, 0.01, 20)
 Instance1.simple_initiate([0, 0, 2], [0, 0, 0.5], [0, 0, 1], 3)
