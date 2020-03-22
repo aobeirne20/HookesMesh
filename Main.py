@@ -1,7 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
-
 class PointMass:
 
     def __init__(self, position, mass):
@@ -58,8 +57,8 @@ class Spring:
         else:
             pass
 
-        self.length = self.natural_length + pos_p[self.dim-1] - pos_n[self.dim-1]
-        self.force = -1 * (self.length - self.natural_length) * self.k
+        self.length = pos_p[self.dim-1] - pos_n[self.dim-1]
+        self.force = -1 * self.length * self.k
         force_applicator = np.zeros(3, dtype=float)
         force_applicator[self.dim - 1] = self.force
         self.rigids[1].forces = self.rigids[1].forces + force_applicator
