@@ -20,7 +20,7 @@ class PointMass:
     def react(self, t):
         self.acc = self.forces / self.mass
         self.vel = self.vel + self.acc * t
-        self.pos = self.pos + self.vel * t * t
+        self.pos = self.pos + self.vel * t
 
 
 class Anchor:
