@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 
+
 class PointMass:
 
     def __init__(self, position, mass):
@@ -19,7 +20,7 @@ class PointMass:
     def react(self, t):
         self.acc = self.forces / self.mass
         self.vel = self.vel + self.acc * t
-        self.pos = self.pos + self.vel * t
+        self.pos = self.pos + self.vel * t * t
 
 
 class Anchor:
