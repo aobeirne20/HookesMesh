@@ -2,6 +2,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 import math
 
+from MeshVisual import MeshVisual
+
 class PointMass:
 
     def __init__(self, position, mass):
@@ -83,6 +85,8 @@ class Instance:
         self.time_axis = np.arange(0, self.extent, self.t)
         self.recorder = None
 
+        self.visual = MeshVisual(mesh)
+
     def simple_initiate(self, starting_objects_locs, displacements, recording_object_locs, recording_axis):
         self.recorder = np.zeros([len(recording_object_locs), int(self.extent / self.t)])
         recording_objects = [self.mesh.m[tuple(loc)] for loc in recording_object_locs]
@@ -97,7 +101,7 @@ class Instance:
 
     def simulate(self, recording_objects, recording_axis):
         for tick in np.arange(self.t, self.extent, self.t):
-            
+
             for spring in self.mesh.spring_list:
                 force_applicator = spring.find_forces()
                 spring.rigids[1].forces = spring.rigids[1].forces + force_applicator
@@ -110,6 +114,8 @@ class Instance:
 
             for i, (rigid, axis) in enumerate(zip(recording_objects, recording_axis)):
                 self.recorder[i, int(np.rint(tick / self.t))] = rigid.pos[axis-1]
+
+            self.visual.update()
 
         plt.plot(self.time_axis, self.recorder[0, :], self.time_axis, self.recorder[1, :])
         plt.show()
@@ -126,13 +132,3 @@ TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
 
 Instance1 = Instance(TrialMesh, 0.01, 20)
 Instance1.simple_initiate([[0, 0, 1]], [[0, 0, 0.5]], [[0, 0, 1], [0, 0, 2]], [3, 3])
-
-
-
-
-
-
-
-
-
-
