@@ -31,9 +31,8 @@ class Anchor:
         self.connections = None
         self.forces = np.zeros(3, dtype=float)
 
-    def attach(self, spring, side):
-        conn_dict = {1: 0, -1: 1, 2: 2, -2: 3, 3: 4, -3: 5}
-        self.connections[conn_dict[side]] = spring
+    def attach(self, spring, placeholder_side):
+        self.connections = spring
 
     def react(self, t):
         pass
@@ -50,13 +49,7 @@ class Spring:
     def find_forces(self):
         distance = self.rigids[1].pos - self.rigids[0].pos
         length = np.linalg.norm(distance)
-        force = -1 * (length - self.natural_length) * self.k
-        depth_angle = math.atan((distance[1])/(np.linalg.norm(distance[np.asarray([0, 2])])))
-        flat_angle = math.atan((distance[2]/distance[0]))
-        xz = force * math.cos(depth_angle)
-        force_vector = np.asarray([xz * np.cos(flat_angle),
-                                   force * np.sin(depth_angle),
-                                   xz * np.sin(flat_angle)]).round(decimals=15)
+        force_vector = (-1 * (length - self.natural_length) * self.k) * distance / length
         return force_vector
 
 
@@ -93,9 +86,9 @@ class Instance:
     def simple_initiate(self, starting_objects_locs, displacements, recording_object_locs, recording_axis):
         self.recorder = np.zeros([len(recording_object_locs), int(self.extent / self.t)])
         recording_objects = []
-        for rec_combo in enumerate(zip(recording_object_locs, recording_axis)):
-            recording_objects.append(self.mesh.m[tuple(rec_combo[1][0])])
-            self.recorder[rec_combo[0], 0] = recording_objects[-1].pos[rec_combo[1][1]-1]
+        for i, (rigid, axis) in enumerate(zip(recording_object_locs, recording_axis)):
+            recording_objects.append(self.mesh.m[tuple(rigid)])
+            self.recorder[i, 0] = recording_objects[-1].pos[axis-1]
 
         for disp_combo in zip(starting_objects_locs, displacements):
             starting_object = self.mesh.m[tuple(disp_combo[0])]
@@ -138,7 +131,7 @@ TrialMesh.create_spring([0, 0, 1], [0, 0, 2], 1, 2)
 TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
 
 Instance1 = Instance(TrialMesh, 0.01, 50)
-Instance1.simple_initiate([[0, 0, 2]], [[0, 1, 0]], [[0, 0, 1], [0, 0, 2]], [2, 2])
+Instance1.simple_initiate([[0, 0, 1]], [[0, 1, 0]], [[0, 0, 1], [0, 0, 2]], [2, 2])
 
 
 
