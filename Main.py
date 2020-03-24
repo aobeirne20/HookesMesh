@@ -85,14 +85,13 @@ class Instance:
 
     def simple_initiate(self, starting_objects_locs, displacements, recording_object_locs, recording_axis):
         self.recorder = np.zeros([len(recording_object_locs), int(self.extent / self.t)])
-        recording_objects = []
-        for i, (rigid, axis) in enumerate(zip(recording_object_locs, recording_axis)):
-            recording_objects.append(self.mesh.m[tuple(rigid)])
-            self.recorder[i, 0] = recording_objects[-1].pos[axis-1]
+        recording_objects = [self.mesh.m[tuple(loc)] for loc in recording_object_locs]
+        for i, axis in enumerate(recording_axis):
+            self.recorder[i, 0] = recording_objects[i].pos[axis-1]
 
-        for disp_combo in zip(starting_objects_locs, displacements):
-            starting_object = self.mesh.m[tuple(disp_combo[0])]
-            starting_object.pos = starting_object.pos + disp_combo[1]
+        for loc, disp in zip(starting_objects_locs, displacements):
+            starting_object = self.mesh.m[tuple(loc)]
+            starting_object.pos = starting_object.pos + disp
 
         self.simulate(recording_objects, recording_axis)
 
@@ -109,16 +108,11 @@ class Instance:
                 rigid.react(self.t)
                 rigid.forces = np.zeros(3, dtype=float)
 
-            for rec_combo in enumerate(zip(recording_objects, recording_axis)):
-                self.recorder[rec_combo[0], int(np.rint(tick / self.t))] = rec_combo[1][0].pos[rec_combo[1][1]-1]
+            for i, (rigid, axis) in enumerate(zip(recording_objects, recording_axis)):
+                self.recorder[i, int(np.rint(tick / self.t))] = rigid.pos[axis-1]
 
-        print(self.time_axis)
-        print(self.recorder[0, :])
-        print(self.recorder[1, :])
         plt.plot(self.time_axis, self.recorder[0, :], self.time_axis, self.recorder[1, :])
         plt.show()
-
-
 
 
 TrialMesh = Mesh([1, 1, 4])
@@ -130,8 +124,8 @@ TrialMesh.create_spring([0, 0, 0], [0, 0, 1], 1, 2)
 TrialMesh.create_spring([0, 0, 1], [0, 0, 2], 1, 2)
 TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
 
-Instance1 = Instance(TrialMesh, 0.01, 50)
-Instance1.simple_initiate([[0, 0, 1]], [[0, 1, 0]], [[0, 0, 1], [0, 0, 2]], [2, 2])
+Instance1 = Instance(TrialMesh, 0.01, 20)
+Instance1.simple_initiate([[0, 0, 1]], [[0, 0, 0.5]], [[0, 0, 1], [0, 0, 2]], [3, 3])
 
 
 
