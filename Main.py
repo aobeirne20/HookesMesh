@@ -1,5 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import math
 
 class PointMass:
 
@@ -42,22 +43,20 @@ class Spring:
     def __init__(self, rigid_n, rigid_p, natural_length, k, dim):
         self.k = k
         self.natural_length = natural_length
-        self.length = natural_length
         self.rigids = [rigid_n, rigid_p]
-        self.force = 0
         self.dim = dim
 
     def find_forces(self):
-        pos_n = self.rigids[0].pos - self.rigids[0].initial_pos
-        pos_p = self.rigids[1].pos - self.rigids[1].initial_pos
-        self.length = pos_p[self.dim-1] - pos_n[self.dim-1]
-        self.force = -1 * self.length * self.k
-        force_applicator = np.zeros(3, dtype=float)
-        force_applicator[self.dim - 1] = self.force
-        self.rigids[1].forces = self.rigids[1].forces + force_applicator
-        force_applicator[self.dim - 1] = -1 * self.force
-        self.rigids[0].forces = self.rigids[0].forces + force_applicator
-        force_applicator = None
+        distance = self.rigids[1].pos - self.rigids[0].pos
+        length = np.linalg.norm(distance)
+        force = -1 * (length - self.natural_length) * self.k
+        depth_angle = math.atan((distance[1])/(np.linalg.norm(distance[np.asarray([0, 2])])))
+        flat_angle = math.atan((distance[2]/distance[0]))
+        xz = force * math.cos(depth_angle)
+        force_vector = np.asarray([xz * np.cos(flat_angle),
+                                   force * np.sin(depth_angle),
+                                   xz * np.sin(flat_angle)]).round(decimals=15)
+        return force_vector
 
 
 class Mesh:
@@ -99,8 +98,11 @@ class Instance:
 
     def simulate(self,recording_object, recording_axis):
         for tick in np.arange(self.t, self.extent, self.t):
+            
             for spring in self.mesh.spring_list:
-                spring.find_forces()
+                force_applicator = spring.find_forces()
+                spring.rigids[1].forces = spring.rigids[1].forces + force_applicator
+                spring.rigids[0].forces = spring.rigids[0].forces + -1 * force_applicator
 
             for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
                 rigid = rigid.item()
@@ -112,17 +114,19 @@ class Instance:
         plt.show()
 
 
+
+
 TrialMesh = Mesh([1, 1, 4])
 TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
 TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
 TrialMesh.create_pointmass([0, 0, 2], [0, 0, 2], 1)
 TrialMesh.create_anchor([0, 0, 3], [0, 0, 3])
-TrialMesh.create_spring([0, 0, 1], [0, 0, 0], 1, 2)
-TrialMesh.create_spring([0, 0, 2], [0, 0, 1], 1, 2)
-TrialMesh.create_spring([0, 0, 3], [0, 0, 2], 1, 2)
+TrialMesh.create_spring([0, 0, 0], [0, 0, 1], 1, 2)
+TrialMesh.create_spring([0, 0, 1], [0, 0, 2], 1, 2)
+TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
 
-Instance1 = Instance(TrialMesh, 0.01, 20)
-Instance1.simple_initiate([0, 0, 2], [0, 0, 0.5], [0, 0, 1], 3)
+Instance1 = Instance(TrialMesh, 0.01, 100)
+Instance1.simple_initiate([0, 0, 2], [0, -0.2, 0], [0, 0, 1], 2)
 
 
 
