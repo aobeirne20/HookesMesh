@@ -87,16 +87,22 @@ class Instance:
         self.t = tick_size
         self.extent = length_of_time
         self.time_axis = np.arange(0, self.extent, self.t)
-        self.recorder = np.zeros([int(self.extent / tick_size)])
+        self.recorder = None
 
-    def simple_initiate(self, starting_object_loc, displacement, recording_object_loc, recording_axis):
-        starting_object = self.mesh.m[tuple(starting_object_loc)]
-        recording_object = self.mesh.m[tuple(recording_object_loc)]
-        self.recorder[0] = recording_object.pos[recording_axis - 1]
-        starting_object.pos = starting_object.pos + displacement
-        self.simulate(recording_object, recording_axis)
+    def simple_initiate(self, starting_objects_locs, displacements, recording_object_locs, recording_axis):
+        self.recorder = np.zeros([len(recording_object_locs), int(self.extent / self.t)])
+        recording_objects = []
+        for disp_combo in zip(starting_objects_locs, displacements):
+            starting_object = self.mesh.m[tuple(disp_combo[0])]
+            starting_object.pos = starting_object.pos + disp_combo[1]
 
-    def simulate(self,recording_object, recording_axis):
+        for rec_combo in enumerate(zip(recording_object_locs, recording_axis)):
+            recording_objects.append(self.mesh.m[tuple(rec_combo[1][0])])
+            self.recorder[rec_combo[0], 0] = recording_objects[-1].pos[rec_combo[1][1]-1]
+
+        self.simulate(recording_objects, recording_axis)
+
+    def simulate(self,recording_objects, recording_axis):
         for tick in np.arange(self.t, self.extent, self.t):
             
             for spring in self.mesh.spring_list:
@@ -109,8 +115,13 @@ class Instance:
                 rigid.react(self.t)
                 rigid.forces = np.zeros(3, dtype=float)
 
-            self.recorder[int(np.rint(tick / self.t))] = recording_object.pos[recording_axis - 1]
-        plt.plot(self.time_axis, self.recorder)
+            for rec_combo in enumerate(zip(recording_objects, recording_axis)):
+                self.recorder[rec_combo[0], int(np.rint(tick / self.t))] = rec_combo[1][0].pos[rec_combo[1][1]-1]
+
+        print(self.time_axis)
+        print(self.recorder[0, :])
+        print(self.recorder[1, :])
+        plt.plot(self.time_axis, self.recorder[0, :], self.time_axis, self.recorder[1, :])
         plt.show()
 
 
@@ -126,7 +137,7 @@ TrialMesh.create_spring([0, 0, 1], [0, 0, 2], 1, 2)
 TrialMesh.create_spring([0, 0, 2], [0, 0, 3], 1, 2)
 
 Instance1 = Instance(TrialMesh, 0.01, 100)
-Instance1.simple_initiate([0, 0, 2], [0, -0.2, 0], [0, 0, 1], 2)
+Instance1.simple_initiate([[0, 0, 2]], [[0, 0, 0.5]], [[0, 0, 1], [0, 0, 2]], [3, 3])
 
 
 
