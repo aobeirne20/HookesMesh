@@ -25,6 +25,8 @@ class PointMass(Rigid):
         self.acc = self.forces / self.mass
         self.vel = self.vel + self.acc * t
         self.pos = self.pos + self.vel * t
+
+    def get_kinetic(self):
         return 0.5 * self.mass * ((np.linalg.norm(self.vel))**2)
 
 
@@ -33,23 +35,27 @@ class Anchor(Rigid):
         super().__init__(position)
 
     def react(self, t):
+        pass
+
+    def get_kinetic(self):
         return 0
 
 
 class Spring:
 
-    def __init__(self, rigid_n, rigid_p, natural_length, k, dim):
+    def __init__(self, rigid_n, rigid_p, natural_length, k):
         self.k = k
         self.natural_length = natural_length
+        self.length = natural_length
         self.rigids = [rigid_n, rigid_p]
-        self.dim = dim
 
     def find_forces(self):
-        distance = self.rigids[1].pos - self.rigids[0].pos
-        length = np.linalg.norm(distance)
-        force_vector = (-1 * (length - self.natural_length) * self.k) * distance / length
-        potential_e = 0.5 * self.k * ((length - self.natural_length) ** 2)
-        return force_vector, potential_e
+        length_vector = self.rigids[1].pos - self.rigids[0].pos
+        self.length = np.linalg.norm(length_vector)
+        return (-1 * (self.length - self.natural_length) * self.k) * length_vector / self.length
+
+    def get_potential(self):
+        return 0.5 * self.k * ((self.length - self.natural_length) ** 2)
 
 
 class Mesh:
@@ -64,13 +70,11 @@ class Mesh:
     def create_anchor(self, slot, position):
         self.m[tuple(slot)] = Anchor(position)
 
-    def create_spring(self, slot_n, slot_p, natural_length, k):
-        slot_n = np.asarray(slot_n)
-        slot_p = np.asarray(slot_p)
-        side = ((np.argwhere(abs(slot_p - slot_n)))[0, 0] + 1) * sum(slot_p - slot_n)
-        self.spring_list.append(Spring(self.m[tuple(slot_n)], self.m[tuple(slot_p)], natural_length, k, abs(side)))
-        self.m[tuple(slot_n)].attach(self.spring_list[-1])
-        self.m[tuple(slot_p)].attach(self.spring_list[-1])
+    def create_rest_spring(self, slot_n, slot_p, k):
+        rigid_n, rigid_p = self.m[tuple(slot_n)], self.m[tuple(slot_p)]
+        self.spring_list.append(Spring(rigid_n, rigid_p, np.linalg.norm(rigid_p.pos - rigid_n.pos), k))
+        rigid_n.attach(self.spring_list[-1])
+        rigid_p.attach(self.spring_list[-1])
 
 
 class Instance:
@@ -80,54 +84,57 @@ class Instance:
         self.t = tick_size
         self.extent = length_of_time
         self.time_axis = np.arange(0, self.extent, self.t)
-        self.recorder = None
-        self.te = [0]
-        self.pe = [0]
-        self.ke = [0]
-
+        self.motion_tracker = None
+        self.energy_tracker = None
+        self.tracked_objects = None
+        self.tracked_axis = None
         self.visual = MeshVisual(mesh)
 
-    def simple_initiate(self, starting_objects_locs, displacements, recording_object_locs, recording_axis):
-        self.recorder = np.zeros([len(recording_object_locs), int(self.extent / self.t)])
-        recording_objects = [self.mesh.m[tuple(loc)] for loc in recording_object_locs]
-        for i, axis in enumerate(recording_axis):
-            self.recorder[i, 0] = recording_objects[i].pos[axis-1]
+    def initialize_tracking(self, tracked_object_locs, tracked_axis):
+        self.energy_tracker = np.zeros([int(self.extent / self.t), 3])
+        for spring in self.mesh.spring_list:
+            self.energy_tracker[0, 0] = self.energy_tracker[0, 0] + spring.get_potential()
+        for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
+            rigid = rigid.item()
+            self.energy_tracker[0, 1] = self.energy_tracker[0, 1] + rigid.get_kinetic()
+        self.energy_tracker[0, 2] = self.energy_tracker[0, 0] + self.energy_tracker[0, 1]
 
+        self.motion_tracker = np.zeros([int(self.extent / self.t), len(tracked_object_locs)])
+        self.tracked_objects = [self.mesh.m[tuple(loc)] for loc in tracked_object_locs]
+        self.tracked_axis = tracked_axis
+        for i, axis in enumerate(self.tracked_axis):
+            self.motion_tracker[0, i] = self.tracked_objects[i].pos[axis-1]
+
+    def initialize_displacement(self, starting_objects_locs, displacements):
         for loc, disp in zip(starting_objects_locs, displacements):
-            starting_object = self.mesh.m[tuple(loc)]
-            starting_object.pos = starting_object.pos + disp
+            self.mesh.m[tuple(loc)].pos = self.mesh.m[tuple(loc)].pos + disp
 
-        self.simulate(recording_objects, recording_axis)
-
-    def simulate(self, recording_objects, recording_axis):
-        for tick in np.arange(self.t, self.extent, self.t):
-            potential_e = 0
+    def simulate(self):
+        for i, tick in enumerate(np.arange(self.t, self.extent, self.t)):
             for spring in self.mesh.spring_list:
-                force_applicator, e = spring.find_forces()
-                potential_e = potential_e + e
+                force_applicator = spring.find_forces()
                 spring.rigids[1].forces = spring.rigids[1].forces + force_applicator
                 spring.rigids[0].forces = spring.rigids[0].forces + -1 * force_applicator
+                self.energy_tracker[i+1, 0] = self.energy_tracker[i+1, 0] + spring.get_potential()
 
-            kinetic_e = 0
             for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
                 rigid = rigid.item()
-                e = rigid.react(self.t)
-                kinetic_e = e + kinetic_e
+                rigid.react(self.t)
                 rigid.forces = np.zeros(3, dtype=float)
+                self.energy_tracker[i+1, 1] = self.energy_tracker[i+1, 1] + rigid.get_kinetic()
 
-            for i, (rigid, axis) in enumerate(zip(recording_objects, recording_axis)):
-                self.recorder[i, int(np.rint(tick / self.t))] = rigid.pos[axis-1]
+            for j, (rigid, axis) in enumerate(zip(self.tracked_objects, self.tracked_axis)):
+                self.motion_tracker[i+1, j] = self.tracked_objects[j].pos[axis - 1]
 
-            total_energy = potential_e + kinetic_e
-            self.pe.append(potential_e)
-            self.ke.append(kinetic_e)
-            self.te.append(total_energy)
-
+            self.energy_tracker[i+1, 2] = self.energy_tracker[i+1, 0] + self.energy_tracker[i+1, 1]
             self.visual.update()
 
-        #plt.plot(self.time_axis, self.pe, self.time_axis, self.ke, self.time_axis, self.te)
-        plt.plot(self.time_axis, self.recorder[0, :], self.time_axis, self.recorder[1, :])
+        motion_plot = plt.figure(1)
+        plt.plot(self.time_axis, self.motion_tracker[:, 0], self.time_axis, self.motion_tracker[:, 1])
+        energy_plot = plt.figure(2)
+        plt.plot(self.time_axis, self.energy_tracker[:, 0], self.time_axis, self.energy_tracker[:, 1], self.time_axis, self.energy_tracker[:, 2])
         plt.show()
+
 
 
 TrialMesh = Mesh([1, 3, 2])
@@ -140,13 +147,16 @@ TrialMesh.create_pointmass([0, 1, 0], [0, 1, 0], 1)
 TrialMesh.create_pointmass([0, 2, 1], [0, 2, 1], 1)
 TrialMesh.create_pointmass([0, 2, 0], [0, 2, 0], 1)
 
-TrialMesh.create_spring([0, 0, 1], [0, 1, 1], 1, 1)
-TrialMesh.create_spring([0, 0, 0], [0, 1, 0], 1, 1)
-TrialMesh.create_spring([0, 1, 1], [0, 1, 0], 1, 1)
+TrialMesh.create_rest_spring([0, 0, 1], [0, 1, 1], 1)
+TrialMesh.create_rest_spring([0, 0, 0], [0, 1, 0], 1)
+TrialMesh.create_rest_spring([0, 1, 1], [0, 1, 0], 1)
 
-TrialMesh.create_spring([0, 1, 1], [0, 2, 1], 1, 1)
-TrialMesh.create_spring([0, 1, 0], [0, 2, 0], 1, 1)
-TrialMesh.create_spring([0, 2, 1], [0, 2, 0], 1, 1)
+TrialMesh.create_rest_spring([0, 1, 1], [0, 2, 1], 1)
+TrialMesh.create_rest_spring([0, 1, 0], [0, 2, 0], 1)
+TrialMesh.create_rest_spring([0, 2, 1], [0, 2, 0], 1)
 
 Instance1 = Instance(TrialMesh, 0.01, 100)
-Instance1.simple_initiate([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.2], [0, 0, 0.2]], [[0, 1, 0], [0, 2, 0]], [2, 2])
+Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [3, 3])
+Instance1.initialize_displacement([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.3], [0, 0, -0.2]])
+Instance1.simulate()
+
