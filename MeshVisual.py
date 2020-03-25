@@ -33,13 +33,24 @@ class MeshVisual:
             rigid = rigid.item()
             canvas_x, canvas_y = self.space_canvas_map.space_to_canvas(rigid.pos)
 
-            handle = self.canvas.create_oval(
-                canvas_x - self.point_radius,
-                canvas_y - self.point_radius,
-                canvas_x + self.point_radius,
-                canvas_y + self.point_radius,
-                fill=self.fill
-            )
+            if hasattr(rigid, "vel") == 1:
+
+                handle = self.canvas.create_oval(
+                    canvas_x - self.point_radius,
+                    canvas_y - self.point_radius,
+                    canvas_x + self.point_radius,
+                    canvas_y + self.point_radius,
+                    fill=self.fill)
+
+            else:
+
+                handle = self.canvas.create_rectangle(
+                    canvas_x - self.point_radius,
+                    canvas_y - self.point_radius,
+                    canvas_x + self.point_radius,
+                    canvas_y + self.point_radius,
+                    fill=self.fill)
+
             self.handles.append(handle)
 
     def update(self):

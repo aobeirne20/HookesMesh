@@ -119,9 +119,6 @@ class Instance:
                 self.recorder[i, int(np.rint(tick / self.t))] = rigid.pos[axis-1]
 
             total_energy = potential_e + kinetic_e
-            print(potential_e)
-            print(kinetic_e)
-            print(total_energy)
             self.pe.append(potential_e)
             self.ke.append(kinetic_e)
             self.te.append(total_energy)
