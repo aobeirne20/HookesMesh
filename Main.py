@@ -119,9 +119,10 @@ class Instance:
 
             for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
                 rigid = rigid.item()
+                self.energy_tracker[i+1, 1] = self.energy_tracker[i+1, 1] + rigid.get_kinetic()
                 rigid.react(self.t)
                 rigid.forces = np.zeros(3, dtype=float)
-                self.energy_tracker[i+1, 1] = self.energy_tracker[i+1, 1] + rigid.get_kinetic()
+
 
             for j, (rigid, axis) in enumerate(zip(self.tracked_objects, self.tracked_axis)):
                 self.motion_tracker[i+1, j] = self.tracked_objects[j].pos[axis - 1]
@@ -139,24 +140,24 @@ class Instance:
 
 TrialMesh = Mesh([1, 3, 2])
 
-TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
-TrialMesh.create_anchor([0, 0, 1], [0, 0, 1])
+TrialMesh.create_anchor([0, -1, 0], [0, 0, 0])
+TrialMesh.create_anchor([0, -1, 1], [0, 0, 1])
 
-TrialMesh.create_pointmass([0, 1, 1], [0, 1, 1], 1)
-TrialMesh.create_pointmass([0, 1, 0], [0, 1, 0], 1)
-TrialMesh.create_pointmass([0, 2, 1], [0, 2, 1], 1)
-TrialMesh.create_pointmass([0, 2, 0], [0, 2, 0], 1)
+TrialMesh.create_pointmass([0, -2, 1], [0, 1, 1], 1)
+TrialMesh.create_pointmass([0, -2, 0], [0, 1, 0], 1)
+TrialMesh.create_pointmass([0, -3, 1], [0, 2, 1], 1)
+TrialMesh.create_pointmass([0, -3, 0], [0, 2, 0], 1)
 
-TrialMesh.create_rest_spring([0, 0, 1], [0, 1, 1], 1)
-TrialMesh.create_rest_spring([0, 0, 0], [0, 1, 0], 1)
-TrialMesh.create_rest_spring([0, 1, 1], [0, 1, 0], 1)
+TrialMesh.create_rest_spring([0, -1, 1], [0, -2, 1], 1)
+TrialMesh.create_rest_spring([0, -1, 0], [0, -2, 0], 1)
+TrialMesh.create_rest_spring([0, -2, 1], [0, -2, 0], 1)
 
-TrialMesh.create_rest_spring([0, 1, 1], [0, 2, 1], 1)
-TrialMesh.create_rest_spring([0, 1, 0], [0, 2, 0], 1)
-TrialMesh.create_rest_spring([0, 2, 1], [0, 2, 0], 1)
+TrialMesh.create_rest_spring([0, -2, 1], [0, -3, 1], 1)
+TrialMesh.create_rest_spring([0, -2, 0], [0, -3, 0], 1)
+TrialMesh.create_rest_spring([0, -3, 1], [0, -3, 0], 1)
 
-Instance1 = Instance(TrialMesh, 0.01, 100)
-Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [3, 3])
+Instance1 = Instance(TrialMesh, 0.01, 50)
+Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [2, 2])
 Instance1.initialize_displacement([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.3], [0, 0, -0.2]])
 Instance1.simulate()
 
