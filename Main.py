@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from MeshVisual import MeshVisual
+#from MeshVisual import MeshVisual
+from vis2 import MeshVisual
 
 
 class Rigid:
@@ -84,10 +85,10 @@ class Instance:
         self.t = tick_size
         self.extent = length_of_time
         self.time_axis = np.arange(0, self.extent, self.t)
-        self.motion_tracker = None
-        self.energy_tracker = None
         self.tracked_objects = None
         self.tracked_axis = None
+        self.motion_tracker = None
+        self.energy_tracker = None
         self.visual = MeshVisual(mesh)
 
     def initialize_tracking(self, tracked_object_locs, tracked_axis):
@@ -127,37 +128,53 @@ class Instance:
             for j, (rigid, axis) in enumerate(zip(self.tracked_objects, self.tracked_axis)):
                 self.motion_tracker[i+1, j] = self.tracked_objects[j].pos[axis - 1]
 
-            self.energy_tracker[i+1, 2] = self.energy_tracker[i+1, 0] + self.energy_tracker[i+1, 1]
+            self.energy_tracker[i + 1, 2] = self.energy_tracker[i + 1, 0] + self.energy_tracker[i + 1, 1]
             self.visual.update()
+        print(self.mesh.m)
 
+    def graph_motion(self):
         motion_plot = plt.figure(1)
         plt.plot(self.time_axis, self.motion_tracker[:, 0], self.time_axis, self.motion_tracker[:, 1])
-        energy_plot = plt.figure(2)
-        plt.plot(self.time_axis, self.energy_tracker[:, 0], self.time_axis, self.energy_tracker[:, 1], self.time_axis, self.energy_tracker[:, 2])
         plt.show()
+
+    def graph_energy(self):
+        energy_plot, ax = plt.subplots()
+        ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
+        ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
+        ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Energy (kJ)")
+        ax.set_title("Energy of a Spring-Mass System")
+        ax.legend()
+        energy_plot.show()
+
+
+
+
 
 
 
 TrialMesh = Mesh([1, 3, 2])
 
-TrialMesh.create_anchor([0, -1, 0], [0, 0, 0])
-TrialMesh.create_anchor([0, -1, 1], [0, 0, 1])
+TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
+TrialMesh.create_anchor([0, 0, 1], [0, 0, 1])
 
-TrialMesh.create_pointmass([0, -2, 1], [0, 1, 1], 1)
-TrialMesh.create_pointmass([0, -2, 0], [0, 1, 0], 1)
-TrialMesh.create_pointmass([0, -3, 1], [0, 2, 1], 1)
-TrialMesh.create_pointmass([0, -3, 0], [0, 2, 0], 1)
+TrialMesh.create_pointmass([0, 1, 1], [0, 1, 1], 1)
+TrialMesh.create_pointmass([0, 1, 0], [0, 1, 0], 1)
+TrialMesh.create_pointmass([0, 2, 1], [0, 2, 1], 1)
+TrialMesh.create_pointmass([0, 2, 0], [0, 2, 0], 1)
 
-TrialMesh.create_rest_spring([0, -1, 1], [0, -2, 1], 1)
-TrialMesh.create_rest_spring([0, -1, 0], [0, -2, 0], 1)
-TrialMesh.create_rest_spring([0, -2, 1], [0, -2, 0], 1)
+TrialMesh.create_rest_spring([0, 0, 1], [0, 1, 1], 1)
+TrialMesh.create_rest_spring([0, 0, 0], [0, 1, 0], 1)
+TrialMesh.create_rest_spring([0, 1, 1], [0, 1, 0], 1)
 
-TrialMesh.create_rest_spring([0, -2, 1], [0, -3, 1], 1)
-TrialMesh.create_rest_spring([0, -2, 0], [0, -3, 0], 1)
-TrialMesh.create_rest_spring([0, -3, 1], [0, -3, 0], 1)
+TrialMesh.create_rest_spring([0, 1, 1], [0, 2, 1], 1)
+TrialMesh.create_rest_spring([0, 1, 0], [0, 2, 0], 1)
+TrialMesh.create_rest_spring([0, 2, 1], [0, 2, 0], 1)
 
-Instance1 = Instance(TrialMesh, 0.01, 50)
-Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [2, 2])
-Instance1.initialize_displacement([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.3], [0, 0, -0.2]])
+Instance1 = Instance(TrialMesh, 0.01, 25)
+Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [3, 3])
+Instance1.initialize_displacement([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.2], [0, 0, 0.2]])
 Instance1.simulate()
+Instance1.graph_energy()
 

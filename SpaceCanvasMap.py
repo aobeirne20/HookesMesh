@@ -26,7 +26,8 @@ class SpaceCanvasMap():
         self.canvas_scale = 1 / self.space_scale
 
     def space_to_canvas(self, point):
-        return self.canvas_scale * (self.canvas_translate + np.flip(point[1:], axis=0))
+        a = self.canvas_scale * (self.canvas_translate + np.flip(point[1:], axis=0))
+        return a
 
     def canvas_to_space(self, point):
         return np.append(self.space_translate + (self.space_scale * point), [0])
