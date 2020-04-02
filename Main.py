@@ -1,12 +1,12 @@
 import numpy as np
 from matplotlib import pyplot as plt
-#from MeshVisual import MeshVisual
 from vis2 import MeshVisual
 
 
 class Rigid:
     def __init__(self, position):
         self.pos = np.asarray(position, dtype=float)
+        self.initial_pos = self.pos
         self.forces = np.zeros(3, dtype=float)
         self.connections = []
 
@@ -17,7 +17,6 @@ class Rigid:
 class PointMass(Rigid):
     def __init__(self, position, mass):
         super().__init__(position)
-        self.initial_pos = np.asarray(position, dtype=float)
         self.vel = np.zeros(3, dtype=float)
         self.acc = np.zeros(3, dtype=float)
         self.mass = mass
@@ -89,7 +88,8 @@ class Instance:
         self.tracked_axis = None
         self.motion_tracker = None
         self.energy_tracker = None
-        self.visual = MeshVisual(mesh)
+        self.force_d = dict()
+        self.visual = MeshVisual(mesh, 1)
 
     def initialize_tracking(self, tracked_object_locs, tracked_axis):
         self.energy_tracker = np.zeros([int(self.extent / self.t), 3])
@@ -97,7 +97,8 @@ class Instance:
             self.energy_tracker[0, 0] = self.energy_tracker[0, 0] + spring.get_potential()
         for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
             rigid = rigid.item()
-            self.energy_tracker[0, 1] = self.energy_tracker[0, 1] + rigid.get_kinetic()
+            if rigid is not None:
+                self.energy_tracker[0, 1] = self.energy_tracker[0, 1] + rigid.get_kinetic()
         self.energy_tracker[0, 2] = self.energy_tracker[0, 0] + self.energy_tracker[0, 1]
 
         self.motion_tracker = np.zeros([int(self.extent / self.t), len(tracked_object_locs)])
@@ -110,8 +111,15 @@ class Instance:
         for loc, disp in zip(starting_objects_locs, displacements):
             self.mesh.m[tuple(loc)].pos = self.mesh.m[tuple(loc)].pos + disp
 
+    def initialize_static_load(self, loaded_objects_locs, forces):
+        for loc, force in zip(loaded_objects_locs, forces):
+            self.force_d[self.mesh.m[tuple(loc)]] = force
+
     def simulate(self):
         for i, tick in enumerate(np.arange(self.t, self.extent, self.t)):
+            for rigid, force in self.force_d.items():
+                rigid.forces = rigid.forces + force
+
             for spring in self.mesh.spring_list:
                 force_applicator = spring.find_forces()
                 spring.rigids[1].forces = spring.rigids[1].forces + force_applicator
@@ -120,61 +128,96 @@ class Instance:
 
             for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
                 rigid = rigid.item()
-                self.energy_tracker[i+1, 1] = self.energy_tracker[i+1, 1] + rigid.get_kinetic()
-                rigid.react(self.t)
-                rigid.forces = np.zeros(3, dtype=float)
-
+                if rigid is not None:
+                    self.energy_tracker[i+1, 1] = self.energy_tracker[i+1, 1] + rigid.get_kinetic()
+                    rigid.react(self.t)
+                    rigid.forces = np.zeros(3, dtype=float)
 
             for j, (rigid, axis) in enumerate(zip(self.tracked_objects, self.tracked_axis)):
                 self.motion_tracker[i+1, j] = self.tracked_objects[j].pos[axis - 1]
 
             self.energy_tracker[i + 1, 2] = self.energy_tracker[i + 1, 0] + self.energy_tracker[i + 1, 1]
-            self.visual.update()
-        print(self.mesh.m)
+            #self.visual.update()
 
     def graph_motion(self):
-        motion_plot = plt.figure(1)
-        plt.plot(self.time_axis, self.motion_tracker[:, 0], self.time_axis, self.motion_tracker[:, 1])
-        plt.show()
+        self.sin_set = np.sin(self.time_axis)
+        motion_plot = plt.figure()
+        ax = motion_plot.add_subplot()
+        for j, rigid in enumerate(self.tracked_objects):
+            ax.plot(self.time_axis, self.motion_tracker[:, j], label=f"Rigid at {rigid.initial_pos}")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Position (m)")
+        ax.set_title("Displacements in a Hookean System")
+        ax.legend()
+        motion_plot.show()
+        np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
+        np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
+
+
 
     def graph_energy(self):
-        energy_plot, ax = plt.subplots()
-        ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
-        ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
-        ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Energy (kJ)")
-        ax.set_title("Energy of a Spring-Mass System")
-        ax.legend()
-        energy_plot.show()
+        #energy_plot = plt.figure()
+        #ax = energy_plot.add_subplot()
+        #ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
+        #ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
+        #ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
+        #ax.set_xlabel("Time (s)")
+        #ax.set_ylabel("Energy (kJ)")
+        #ax.set_title("Energy of a Hookean System")
+        #ax.legend()
+        #energy_plot.show()
+        e = self.energy_tracker[:, 2]
+        np.savetxt('1DOFTime.csv', self.time_axis[0::10000], delimiter=',', fmt='%1.5f')
+        np.savetxt(f'longe.csv', e[0::10000], delimiter=',', fmt='%1.10f')
+        #for n in [0, 1, 2]:
+            #e = self.energy_tracker[:, n]
+            #np.savetxt(f'{n}.csv', e[0::10], delimiter=',', fmt='%1.5f')
+
+
+    def simple_fourier(self):
+        norm_motion_tracker = self.motion_tracker[:, 0] - np.mean(self.motion_tracker[:, 0])
+        n_plot = plt.figure()
+        ax1 = n_plot.add_subplot()
+        ax1.plot(self.time_axis, norm_motion_tracker)
+        n_plot.show()
+        frequency_plot = plt.figure()
+        ax = frequency_plot.add_subplot()
+        for j, rigid in enumerate(self.tracked_objects):
+            fourier = np.fft.fft(norm_motion_tracker)
+            fourier = np.fft.fftshift(fourier)
+            freq = np.fft.fftfreq(self.time_axis.shape[-1], d=self.t)
+            freq = np.fft.fftshift(freq)
+            ax.plot(freq, np.absolute(fourier))
+            np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
+            np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
+        frequency_plot.show()
+
+    def deviation_from_ideal(self, analytical):
+        ideal = analytical(self.time_axis)
+        error = [ideal[t] - self.motion_tracker[t, 0] for t, comp in enumerate(self.time_axis)]
+        error_plot = plt.figure()
+        ax = error_plot.add_subplot()
+        ax.plot(self.time_axis, error)
+        error_plot.show()
 
 
 
 
 
-
-
-TrialMesh = Mesh([1, 3, 2])
+TrialMesh = Mesh([1, 2, 4])
 
 TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
-TrialMesh.create_anchor([0, 0, 1], [0, 0, 1])
+TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
 
-TrialMesh.create_pointmass([0, 1, 1], [0, 1, 1], 1)
-TrialMesh.create_pointmass([0, 1, 0], [0, 1, 0], 1)
-TrialMesh.create_pointmass([0, 2, 1], [0, 2, 1], 1)
-TrialMesh.create_pointmass([0, 2, 0], [0, 2, 0], 1)
+TrialMesh.create_rest_spring([0, 0, 0], [0, 0, 1], 1)
 
-TrialMesh.create_rest_spring([0, 0, 1], [0, 1, 1], 1)
-TrialMesh.create_rest_spring([0, 0, 0], [0, 1, 0], 1)
-TrialMesh.create_rest_spring([0, 1, 1], [0, 1, 0], 1)
-
-TrialMesh.create_rest_spring([0, 1, 1], [0, 2, 1], 1)
-TrialMesh.create_rest_spring([0, 1, 0], [0, 2, 0], 1)
-TrialMesh.create_rest_spring([0, 2, 1], [0, 2, 0], 1)
-
-Instance1 = Instance(TrialMesh, 0.01, 25)
-Instance1.initialize_tracking([[0, 1, 0], [0, 1, 1]], [3, 3])
-Instance1.initialize_displacement([[0, 1, 0], [0, 1, 1]], [[0, 0, -0.2], [0, 0, 0.2]])
+Instance1 = Instance(TrialMesh, 0.0001, 20)
+Instance1.initialize_displacement([[0, 0, 1]], [[0, 0, 0.1]])
+Instance1.initialize_tracking([[0, 0, 1]], [3])
 Instance1.simulate()
-Instance1.graph_energy()
+#Instance1.graph_motion()
+#Instance1.graph_energy()
+Instance1.simple_fourier()
+#Instance1.deviation_from_ideal(lambda t: (0.1 * np.sin(t + 0.5 * np.pi)) + 1)
+
 
