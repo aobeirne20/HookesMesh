@@ -137,7 +137,7 @@ class Instance:
                 self.motion_tracker[i+1, j] = self.tracked_objects[j].pos[axis - 1]
 
             self.energy_tracker[i + 1, 2] = self.energy_tracker[i + 1, 0] + self.energy_tracker[i + 1, 1]
-            #self.visual.update()
+            self.visual.update()
 
     def graph_motion(self):
         self.sin_set = np.sin(self.time_axis)
@@ -150,46 +150,28 @@ class Instance:
         ax.set_title("Displacements in a Hookean System")
         ax.legend()
         motion_plot.show()
-        np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
-        np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
-
-
 
     def graph_energy(self):
-        #energy_plot = plt.figure()
-        #ax = energy_plot.add_subplot()
-        #ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
-        #ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
-        #ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
-        #ax.set_xlabel("Time (s)")
-        #ax.set_ylabel("Energy (kJ)")
-        #ax.set_title("Energy of a Hookean System")
-        #ax.legend()
-        #energy_plot.show()
-        e = self.energy_tracker[:, 2]
-        np.savetxt('1DOFTime.csv', self.time_axis[0::10000], delimiter=',', fmt='%1.5f')
-        np.savetxt(f'longe.csv', e[0::10000], delimiter=',', fmt='%1.10f')
-        #for n in [0, 1, 2]:
-            #e = self.energy_tracker[:, n]
-            #np.savetxt(f'{n}.csv', e[0::10], delimiter=',', fmt='%1.5f')
-
+        energy_plot = plt.figure()
+        ax = energy_plot.add_subplot()
+        ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
+        ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
+        ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Energy (kJ)")
+        ax.set_title("Energy of a Hookean System")
+        ax.legend()
+        energy_plot.show()
 
     def simple_fourier(self):
-        norm_motion_tracker = self.motion_tracker[:, 0] - np.mean(self.motion_tracker[:, 0])
-        n_plot = plt.figure()
-        ax1 = n_plot.add_subplot()
-        ax1.plot(self.time_axis, norm_motion_tracker)
-        n_plot.show()
         frequency_plot = plt.figure()
         ax = frequency_plot.add_subplot()
         for j, rigid in enumerate(self.tracked_objects):
-            fourier = np.fft.fft(norm_motion_tracker)
+            fourier = np.fft.fft(self.motion_tracker[:, j] - np.mean(self.motion_tracker[:, j]))
             fourier = np.fft.fftshift(fourier)
             freq = np.fft.fftfreq(self.time_axis.shape[-1], d=self.t)
             freq = np.fft.fftshift(freq)
             ax.plot(freq, np.absolute(fourier))
-            np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
-            np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
         frequency_plot.show()
 
     def deviation_from_ideal(self, analytical):
@@ -204,20 +186,28 @@ class Instance:
 
 
 
-TrialMesh = Mesh([1, 2, 4])
+TrialMesh = Mesh([1, 1, 2])
 
 TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
 TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
 
 TrialMesh.create_rest_spring([0, 0, 0], [0, 0, 1], 1)
 
-Instance1 = Instance(TrialMesh, 0.0001, 20)
+Instance1 = Instance(TrialMesh, 0.001, 20)
 Instance1.initialize_displacement([[0, 0, 1]], [[0, 0, 0.1]])
 Instance1.initialize_tracking([[0, 0, 1]], [3])
 Instance1.simulate()
-#Instance1.graph_motion()
-#Instance1.graph_energy()
+Instance1.graph_motion()
+Instance1.graph_energy()
 Instance1.simple_fourier()
 #Instance1.deviation_from_ideal(lambda t: (0.1 * np.sin(t + 0.5 * np.pi)) + 1)
+
+
+
+#np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
+#np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
+#np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
+#np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
+
 
 
