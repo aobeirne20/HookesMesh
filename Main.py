@@ -204,10 +204,10 @@ Instance1.simple_fourier()
 
 
 
-#np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
-#np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
-#np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
-#np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
+np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
+np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
+np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
+np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
 
 
 
