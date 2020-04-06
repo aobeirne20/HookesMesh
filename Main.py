@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from vis2 import MeshVisual
+import time as time
 
 
 class Rigid:
@@ -94,6 +95,7 @@ class Instance:
     def initialize_tracking(self, tracked_object_locs, tracked_axis):
         self.energy_tracker = np.zeros([int(self.extent / self.t), 3])
         for spring in self.mesh.spring_list:
+            spring.find_forces()
             self.energy_tracker[0, 0] = self.energy_tracker[0, 0] + spring.get_potential()
         for rigid in np.nditer(self.mesh.m, flags=["refs_ok"]):
             rigid = rigid.item()
@@ -116,7 +118,20 @@ class Instance:
             self.force_d[self.mesh.m[tuple(loc)]] = force
 
     def simulate(self):
+        #Time and limit status bar printing
+        start = time.time()
+        end_tick = self.extent/self.t-2
         for i, tick in enumerate(np.arange(self.t, self.extent, self.t)):
+            if (tick/self.t) % 100 == 0 or i == end_tick:
+                n_blocks = int(((tick + self.t) / self.extent) * 20)
+                space = " "
+                bar = u'\u2588'
+                tps = (tick / self.t) / (time.time() - start)
+                print(f'\rSecond {tick + self.t:5.3f}  |{bar * n_blocks}{space * (20 - n_blocks)}| '
+                      f'{(tick / self.t) + 1:.0f}/{self.extent / self.t:.0f} ticks, {((tick + self.t) / self.extent) * 100:.2f}%'
+                      f'    {tps:.0f} TPS, Estimated {(((self.extent - tick) / self.t) / tps) / 60:.2f} minutes remaining',
+                      end='')
+
             for rigid, force in self.force_d.items():
                 rigid.forces = rigid.forces + force
 
@@ -150,64 +165,101 @@ class Instance:
         ax.set_title("Displacements in a Hookean System")
         ax.legend()
         motion_plot.show()
+        m1 = self.motion_tracker[0::30, 0]
+        m2 = self.motion_tracker[0::30, 1]
+        m3 = self.motion_tracker[0::30, 2]
+        m4 = self.motion_tracker[0::30, 3]
+        m5 = self.motion_tracker[0::30, 4]
+        np.savetxt('3DOFMotion.csv', np.asarray(list(zip(self.time_axis[0::30], m1, m2, m3, m4, m5))), delimiter=',', fmt='%1.8f')
+
+
 
     def graph_energy(self):
-        energy_plot = plt.figure()
-        ax = energy_plot.add_subplot()
-        ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
-        ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
-        ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
-        ax.set_xlabel("Time (s)")
-        ax.set_ylabel("Energy (kJ)")
-        ax.set_title("Energy of a Hookean System")
-        ax.legend()
-        energy_plot.show()
+        #energy_plot = plt.figure()
+        #ax = energy_plot.add_subplot()
+        #ax.plot(self.time_axis, self.energy_tracker[:, 0], label="Kinetic Energy")
+        #ax.plot(self.time_axis, self.energy_tracker[:, 1], label="Potential Energy")
+        #ax.plot(self.time_axis, self.energy_tracker[:, 2], label="Total Energy")
+        #ax.set_xlabel("Time (s)")
+        #ax.set_ylabel("Energy (kJ)")
+        #ax.set_title("Energy of a Hookean System")
+        #ax.legend()
+        #energy_plot.show()
+        t = self.energy_tracker[0::10000, 2]
+        np.savetxt('2DOFEnergy.csv', np.asarray(list(zip(self.time_axis[0::10000], t))), delimiter=',', fmt='%1.8f')
 
     def simple_fourier(self):
         frequency_plot = plt.figure()
         ax = frequency_plot.add_subplot()
+
         for j, rigid in enumerate(self.tracked_objects):
             fourier = np.fft.fft(self.motion_tracker[:, j] - np.mean(self.motion_tracker[:, j]))
             fourier = np.fft.fftshift(fourier)
             freq = np.fft.fftfreq(self.time_axis.shape[-1], d=self.t)
             freq = np.fft.fftshift(freq)
             ax.plot(freq, np.absolute(fourier))
+            fourier = np.abs(fourier)
+            freq = freq[int(0.5*self.extent/self.t):int((1/self.t)+(0.5*self.extent/self.t))]
+            f = fourier[int(0.5*self.extent/self.t):int((1/self.t)+(0.5*self.extent/self.t))]
+            np.savetxt('3DOFFourier.csv', freq, delimiter=',', fmt='%1.8f')
+            np.savetxt(f'Fourier{j}.csv', f, delimiter=',', fmt='%1.6f')
+            ax.set_xlim((0, 1))
         frequency_plot.show()
 
     def deviation_from_ideal(self, analytical):
+        self.time_axis = self.time_axis[0::int((self.extent/self.t)/2000)]
+        self.motion_tracker = self.motion_tracker[0::int((self.extent/self.t)/2000)]
         ideal = analytical(self.time_axis)
         error = [ideal[t] - self.motion_tracker[t, 0] for t, comp in enumerate(self.time_axis)]
+        new_error = []
+        for i in np.arange(10, 2010, 10):
+            s_error = np.square(error[(i-10):i])
+            new_error.append(np.mean(s_error))
         error_plot = plt.figure()
         ax = error_plot.add_subplot()
-        ax.plot(self.time_axis, error)
+        ax.plot(self.time_axis[0::10], new_error)
         error_plot.show()
+        np.savetxt('2DOFError.csv', self.time_axis[0::10], delimiter=',', fmt='%1.6f')
+        np.savetxt('Error.csv', new_error, delimiter=',', fmt='%1.15f')
 
 
-
-
-
-TrialMesh = Mesh([1, 1, 2])
+TrialMesh = Mesh([1, 6, 6])
 
 TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
-TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
+for x in range(0, 5):
+    for y in range(0, 5):
+        TrialMesh.create_pointmass([0, x, y], [0, x, y], 1)
 
-TrialMesh.create_rest_spring([0, 0, 0], [0, 0, 1], 1)
+for y in range(0, 5):
+    for x in range(0, 5):
+        if y == 4 and x == 4:
+            pass
+        elif y == 4 and x != 4:
+            TrialMesh.create_rest_spring([0, x, y], [0, x + 1, y], 1)
+        elif x == 4 and y != 4:
+            TrialMesh.create_rest_spring([0, x, y], [0, x, y + 1], 1)
+        else:
+            TrialMesh.create_rest_spring([0, x, y], [0, x, y + 1], 1)
+            TrialMesh.create_rest_spring([0, x, y], [0, x + 1, y], 1)
 
-Instance1 = Instance(TrialMesh, 0.001, 20)
-Instance1.initialize_displacement([[0, 0, 1]], [[0, 0, 0.1]])
-Instance1.initialize_tracking([[0, 0, 1]], [3])
+
+
+Instance1 = Instance(TrialMesh, 0.01, 60)
+Instance1.initialize_displacement([[0, 2, 0]], [[0, 0, 0.3]])
+#Instance1.initialize_displacement([[0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 4, 0], [0, 0, 0]], [[0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3]])
+Instance1.initialize_tracking([[0, 2, 0], [0, 2, 1], [0, 2, 2], [0, 2, 3], [0, 2, 4]], [3, 3, 3, 3, 3])
 Instance1.simulate()
 Instance1.graph_motion()
-Instance1.graph_energy()
+#Instance1.graph_energy()
 Instance1.simple_fourier()
-#Instance1.deviation_from_ideal(lambda t: (0.1 * np.sin(t + 0.5 * np.pi)) + 1)
+#Instance1.deviation_from_ideal(lambda t: (-2/(20*np.sqrt(5)))*np.cos(t*np.sqrt((3+np.sqrt(5))/2)) + 2/(20*np.sqrt(5))*np.cos(t*np.sqrt((3-np.sqrt(5))/2))+1)
 
 
 
-np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
-np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
-np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
-np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
+#np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
+#np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
+#np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
+#np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
 
 
 
