@@ -19,7 +19,7 @@ Instance.intialize_displacement([one mesh array "logical" position], [displaceme
 
 Instance.intialize_static_load([one mesh array "logical" position], [force])
 
-Instance.intialize_tracking([one mesh array "logical" position], [axis to track (1 to 3)])
+Instance.intialize_tracking([one mesh array "logical" position], [axis to track (1 to 3)])  
 Tracked data will be used by the analysis tools for graphing, deviation from ideal, and the simple fourier analysis
 
 Instance.simulate()
