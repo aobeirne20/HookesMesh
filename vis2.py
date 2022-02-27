@@ -4,6 +4,7 @@ import tkinter as tk
 def setup_graphics(width, height, name="Mesh Visual"):
     gui = tk.Tk()
     gui.geometry("{}x{}".format(width, height))
+    gui.eval('tk::PlaceWindow . center')
     gui.resizable(0, 0)
     gui.title(name)
     canvas = tk.Canvas(gui, width=width, height=height, bg='#000000', highlightthickness=0, borderwidth=0)

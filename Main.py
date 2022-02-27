@@ -166,6 +166,10 @@ class Instance:
     def simple_fourier(self):
         frequency_plot = plt.figure()
         ax = frequency_plot.add_subplot()
+        ax.set_xlim([0, 1])
+        ax.set_title("Fourier Analysis of Displacement, Node 3")
+        ax.set_xlabel("Frequency [Hz]")
+        ax.set_ylabel("Amplitude Spectra")
         for j, rigid in enumerate(self.tracked_objects):
             fourier = np.fft.fft(self.motion_tracker[:, j] - np.mean(self.motion_tracker[:, j]))
             fourier = np.fft.fftshift(fourier)
@@ -186,28 +190,37 @@ class Instance:
 
 
 
-TrialMesh = Mesh([1, 1, 2])
+TrialMesh = Mesh([1, 6, 6])
 
 TrialMesh.create_anchor([0, 0, 0], [0, 0, 0])
-TrialMesh.create_pointmass([0, 0, 1], [0, 0, 1], 1)
+for x in range(0, 5):
+    for y in range(0, 5):
+        TrialMesh.create_pointmass([0, x, y], [0, x, y], 1)
 
-TrialMesh.create_rest_spring([0, 0, 0], [0, 0, 1], 1)
+for y in range(0, 5):
+    for x in range(0, 5):
+        if y == 4 and x == 4:
+            pass
+        elif y == 4 and x != 4:
+            TrialMesh.create_rest_spring([0, x, y], [0, x + 1, y], 3)
+        elif x == 4 and y != 4:
+            TrialMesh.create_rest_spring([0, x, y], [0, x, y + 1], 3)
+        else:
+            TrialMesh.create_rest_spring([0, x, y], [0, x, y + 1], 3)
+            TrialMesh.create_rest_spring([0, x, y], [0, x + 1, y], 3)
 
-Instance1 = Instance(TrialMesh, 0.001, 20)
-Instance1.initialize_displacement([[0, 0, 1]], [[0, 0, 0.1]])
-Instance1.initialize_tracking([[0, 0, 1]], [3])
+
+
+Instance1 = Instance(TrialMesh, 0.005, 200)
+Instance1.initialize_displacement([[0, 2, 2]], [[0, 0.1, 0.1]])
+#Instance1.initialize_displacement([[0, 1, 0], [0, 2, 0], [0, 3, 0], [0, 4, 0], [0, 0, 0]], [[0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3], [0, 0, 0.3]])
+Instance1.initialize_tracking([[0, 1, 1], [0, 1, 1]], [2, 3])
 Instance1.simulate()
 Instance1.graph_motion()
-Instance1.graph_energy()
+#Instance1.graph_energy()
 Instance1.simple_fourier()
-#Instance1.deviation_from_ideal(lambda t: (0.1 * np.sin(t + 0.5 * np.pi)) + 1)
+#Instance1.deviation_from_ideal(lambda t: (-2/(20*np.sqrt(5)))*np.cos(t*np.sqrt((3+np.sqrt(5))/2)) + 2/(20*np.sqrt(5))*np.cos(t*np.sqrt((3-np.sqrt(5))/2))+1)
 
-
-
-#np.savetxt('1DOFTime.csv', self.time_axis[0::10], delimiter=',', fmt='%1.5f')
-#np.savetxt('1DOFDisp.csv', self.motion_tracker[0::10], delimiter=',', fmt='%1.5f')
-#np.savetxt(f'freq.csv', freq, delimiter=',', fmt='%1.10f')
-#np.savetxt(f'fourier.csv', np.absolute(fourier), delimiter=',', fmt='%1.10f')
 
 
 
